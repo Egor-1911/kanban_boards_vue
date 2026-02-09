@@ -20,6 +20,28 @@
                     class="column"
             >
                 <h2 class="column-title">{{ column.title }}</h2>
+
+                <div v-if="columnIndex === 0" class="task-form">
+                    <input
+                            type="text"
+                            v-model="newTask.title"
+                            placeholder="Название задачи"
+                            class="task-input"
+                    >
+                    <textarea
+                            v-model="newTask.description"
+                            placeholder="Описание задачи"
+                            class="task-textarea"
+
+                    ></textarea>
+                    <input
+                            type="date"
+                            v-model="newTask.deadline"
+                            class="task-input"
+                    >
+                    <button @click="addTask" class="btn-add">Добавить задачу</button>
+                </div>
+
                 <div class="tasks-container">
 
                 </div>
