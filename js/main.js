@@ -53,7 +53,6 @@ Vue.component('task-form', {
         }
     }
 })
-// asdasd
 Vue.component('kanban-board', {
     template:`
         <div class="board">
