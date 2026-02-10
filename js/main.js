@@ -13,19 +13,54 @@ Vue.component('task-card', {
     },
     template: `
     <div class="task-card">
-        <h3>{{ task.title  }}</h3>
-        <p>{{ task.description }}</p>
-        <p><strong>Дэдлайн:</strong> {{ task.deadline }}</p>
-        <small>Создано: {{ task.createdAt }}</small>
-        <small v-if="task.lastEdit">Изменено: {{ task.lastEdit }}</small>
-        
-        <div class="card-actions">
-            <button @click="removeTask" v-if="columnId === 1"> Удалить</button>
+        <div v-if="!isEditing">
+            <h3>{{ task.title  }}</h3>
+            <p>{{ task.description }}</p>
+            <p><strong>Дэдлайн:</strong> {{ task.deadline }}</p>
+            <small>Создано: {{ task.createdAt }}</small>
+            <small v-if="task.lastEdit">Изменено: {{ task.lastEdit }}</small>
+            
+            <div class="card-actions">
+                <button v-if="columnId === 1" @click="startEdit">Редактировать</button>
+                <button @click="removeTask" v-if="columnId === 1"> Удалить</button>
+            </div>
         </div>
         
+        <div v-else class="edit-form">
+            <input v-model="editTitle" class="task-input">
+            <textarea v-model="editDescription" class="task-textarea"></textarea>
+            <button @click="saveEdit" class="btn-add">Сохранить</button>
+            <button @click="isEditing = false" class="btn-add" style="background:#ccc; margin-top:5px">Отмена</button>
+        </div>
     </div>
     `,
+
+    data() {
+        return {
+            isEditing: false,
+            editTitle: this.task.title,
+            editDescription: this.task.description
+        }
+    },
+
     methods: {
+        startEdit() {
+            this.isEditing = true;
+            this.editTitle = this.task.title;
+            this.editDescription = this.task.description;
+        },
+
+        saveEdit() {
+            const updatedTask = { // Добавь 'd' здесь
+                ...this.task,
+                title: this.editTitle,
+                description: this.editDescription,
+                lastEdit: new Date().toLocaleString(),
+            };
+            eventBus.$emit('update-task', updatedTask); // Теперь переменные совпадают
+            this.isEditing = false;
+        },
+
         removeTask() {
             eventBus.$emit('remove-task', this.task.id);
         }
@@ -139,7 +174,17 @@ Vue.component('kanban-board', {
             const column = this.columns.find(col => col.id === 1);
             column.tasks = column.tasks.filter(t => t.id !== taskId);
             this.saveTasks();
-        });
+        })
+
+        eventBus.$on('update-task', updatedTask => {
+            const column = this.columns.find(col => col.id === 1);
+            const index = column.tasks.findIndex(t => t.id === updatedTask.id);
+            if (index !== -1) {
+                // Используем Vue.set или splice для сохранения реактивности
+                column.tasks.splice(index, 1, updatedTask);
+                this.saveTasks();
+            }
+        })
 
     }
 })
