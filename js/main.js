@@ -2,65 +2,73 @@ let eventBus = new Vue()
 
 Vue.component('task-card', {
     props: {
-        task: {
-            type: Object,
-            required: true
-        },
-        columnId: {
-            type: Number,
-            required: true
-        }
+        task: { type: Object, required: true },
+        columnId: { type: Number, required: true }
     },
     template: `
     <div class="task-card">
-        <div v-if="!isEditing">
-            <h3>{{ task.title  }}</h3>
+        <div v-if="!isEditing && !isReturning">
+            <h3>{{ task.title }}</h3>
             <p>{{ task.description }}</p>
+            <p v-if="task.returnReason" style="color: #d9534f;"><strong>Причина возврата:</strong> {{ task.returnReason }}</p>
             <p><strong>Дэдлайн:</strong> {{ task.deadline }}</p>
             <small>Создано: {{ task.createdAt }}</small>
             <small v-if="task.lastEdit">Изменено: {{ task.lastEdit }}</small>
             
             <div class="card-actions">
-                <button v-if="columnId === 1" @click="startEdit">Редактировать</button>
-                <button @click="removeTask" v-if="columnId === 1"> Удалить</button>
+                <button v-if="columnId !== 4" @click="isEditing = true">Редактировать</button>
+                <button v-if="columnId < 4" @click="moveForward">Переместить</button>
+                <button v-if="columnId === 3" @click="isReturning = true">← Назад</button>
+                <button v-if="columnId === 1" @click="removeTask">Удалить</button>
             </div>
         </div>
         
-        <div v-else class="edit-form">
+        <!-- редактирование -->
+        <div v-else-if="isEditing" class="edit-form">
             <input v-model="editTitle" class="task-input">
             <textarea v-model="editDescription" class="task-textarea"></textarea>
             <button @click="saveEdit" class="btn-add">Сохранить</button>
             <button @click="isEditing = false" class="btn-add" style="background:#ccc; margin-top:5px">Отмена</button>
         </div>
+
+        <!-- возврат-->
+        <div v-else-if="isReturning" class="edit-form">
+            <textarea v-model="returnReason" placeholder="Укажите причину возврата" class="task-textarea"></textarea>
+            <button @click="confirmReturn" class="btn-add">Подтвердить возврат</button>
+            <button @click="isReturning = false" class="btn-add" style="background:#ccc; margin-top:5px">Отмена</button>
+        </div>
     </div>
     `,
-
     data() {
         return {
             isEditing: false,
+            isReturning: false,
+            returnReason: '',
             editTitle: this.task.title,
             editDescription: this.task.description
         }
     },
-
     methods: {
-        startEdit() {
-            this.isEditing = true;
-            this.editTitle = this.task.title;
-            this.editDescription = this.task.description;
-        },
-
         saveEdit() {
-            const updatedTask = { // Добавь 'd' здесь
+            const updatedTask = {
                 ...this.task,
                 title: this.editTitle,
                 description: this.editDescription,
-                lastEdit: new Date().toLocaleString(),
+                lastEdit: new Date().toLocaleString()
             };
-            eventBus.$emit('update-task', updatedTask); // Теперь переменные совпадают
+            eventBus.$emit('update-task', updatedTask);
             this.isEditing = false;
         },
-
+        moveForward() {
+            eventBus.$emit('move-task', this.task.id);
+        },
+        confirmReturn() {
+            if (this.returnReason.trim()) {
+                eventBus.$emit('move-task-back', { taskId: this.task.id, reason: this.returnReason });
+                this.isReturning = false;
+                this.returnReason = '';
+            }
+        },
         removeTask() {
             eventBus.$emit('remove-task', this.task.id);
         }
@@ -70,73 +78,43 @@ Vue.component('task-card', {
 Vue.component('task-form', {
     template: `
     <form class="task-form" @submit.prevent="onSubmit">
-        <p v-if="errors.length">
-            <b>Исправьте ошибки:</b>
-            <ul>
-                <li v-for="error in errors">{{ error }}</li>
-            </ul>
-        </p>
-        
-        <input type="text" v-model="title" placeholder="Название задачи" class="task-input">
-        
-        <textarea v-model="description" placeholder="Описание задачи" class="task-textarea"></textarea>
-        
-        <label for="deadline">Дэдлайн:</label>
-        <input type="date" id="deadline" v-model="deadline" class="task-input">
-        
+        <p v-if="errors.length"><b>Исправьте ошибки:</b></p>
+        <ul><li v-for="error in errors">{{ error }}</li></ul>
+        <input type="text" v-model="title" placeholder="Название" class="task-input">
+        <textarea v-model="description" placeholder="Описание" class="task-textarea"></textarea>
+        <input type="date" v-model="deadline" class="task-input">
         <button type="submit" class="btn-add">Добавить задачу</button>
     </form>
     `,
-    data() {
-        return {
-            title: null,
-            description: null,
-            deadline: null,
-            errors: []
-        }
-    },
+    data() { return { title: null, description: null, deadline: null, errors: [] } },
     methods: {
         onSubmit() {
             this.errors = [];
             if (this.title && this.description && this.deadline) {
-                let newTask = {
+                eventBus.$emit('task-added', {
                     id: Date.now(),
                     title: this.title,
                     description: this.description,
                     deadline: this.deadline,
                     createdAt: new Date().toLocaleString(),
-                    lastEdit: new Date().toLocaleString(),
-                    status: 'planned'
-                }
-                eventBus.$emit('task-added', newTask)
-                this.title = null
-                this.description = null
-                this.deadline = null
+                    lastEdit: new Date().toLocaleString()
+                });
+                this.title = this.description = this.deadline = null;
             } else {
-                if (!this.title) this.errors.push("Укажите заголовок.")
-                if (!this.description) this.errors.push("Добавьте описание.")
-                if (!this.deadline) this.errors.push("Установите дэдлайн.")
+                this.errors.push("Заполните все поля");
             }
         }
     }
 })
+
 Vue.component('kanban-board', {
     template:`
         <div class="board">
             <div v-for="(column, columnIndex) in columns" :key="column.id" class="column">
                 <h2 class="column-title">{{ column.title }}</h2>
-                
                 <task-form v-if="columnIndex === 0"></task-form>
-
-<!--                <div class="tasks-container"></div>-->
-                
                 <div class="tasks-container">
-                    <task-card 
-                        v-for="task in column.tasks" 
-                        :key="task.id" 
-                        :task="task" 
-                        :column-id="column.id"
-                    ></task-card>
+                    <task-card v-for="task in column.tasks" :key="task.id" :task="task" :column-id="column.id"></task-card>
                 </div>
             </div>
         </div>
@@ -152,43 +130,55 @@ Vue.component('kanban-board', {
         }
     },
     methods: {
-        saveTasks() {
-            localStorage.setItem('kanban-columns', JSON.stringify(this.columns));
-        },
-        addTask(task) {
-            this.columns[0].tasks.push(task);
-            this.saveTasks();
-        },
+        saveTasks() { localStorage.setItem('kanban-columns', JSON.stringify(this.columns)); }
     },
     mounted() {
         const savedData = localStorage.getItem('kanban-columns');
-        if (savedData) {
-            this.columns = JSON.parse(savedData);
-        }
+        if (savedData) this.columns = JSON.parse(savedData);
 
         eventBus.$on('task-added', task => {
-            this.addTask(task);
-        })
-
-        eventBus.$on('remove-task', taskId => {
-            const column = this.columns.find(col => col.id === 1);
-            column.tasks = column.tasks.filter(t => t.id !== taskId);
+            this.columns[0].tasks.push(task);
             this.saveTasks();
-        })
+        });
+
+        eventBus.$on('remove-task', id => {
+            this.columns[0].tasks = this.columns[0].tasks.filter(t => t.id !== id);
+            this.saveTasks();
+        });
 
         eventBus.$on('update-task', updatedTask => {
-            const column = this.columns.find(col => col.id === 1);
-            const index = column.tasks.findIndex(t => t.id === updatedTask.id);
-            if (index !== -1) {
-                // Используем Vue.set или splice для сохранения реактивности
-                column.tasks.splice(index, 1, updatedTask);
+            for (let i = 0; i < 3; i++) {
+                const idx = this.columns[i].tasks.findIndex(t => t.id === updatedTask.id);
+                if (idx !== -1) {
+                    this.columns[i].tasks.splice(idx, 1, updatedTask);
+                    break;
+                }
+            }
+            this.saveTasks();
+        });
+
+        eventBus.$on('move-task', id => {
+            for (let i = 0; i < 3; i++) {
+                const idx = this.columns[i].tasks.findIndex(t => t.id === id);
+                if (idx !== -1) {
+                    const task = this.columns[i].tasks.splice(idx, 1)[0];
+                    this.columns[i+1].tasks.push(task);
+                    break;
+                }
+            }
+            this.saveTasks();
+        });
+
+        eventBus.$on('move-task-back', ({ taskId, reason }) => {
+            const idx = this.columns[2].tasks.findIndex(t => t.id === taskId);
+            if (idx !== -1) {
+                const task = this.columns[2].tasks.splice(idx, 1)[0];
+                task.returnReason = reason;
+                this.columns[1].tasks.push(task);
                 this.saveTasks();
             }
-        })
-
+        });
     }
 })
 
-let app = new Vue({
-    el: '#app'
-})
+new Vue({ el: '#app' })
