@@ -117,3 +117,19 @@ body {
 .task-card strong {
     color: #d9534f;
 }
+
+
+.card-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.card-actions button {
+    padding: 5px 10px;
+    background-color: red;
+    border: 1px solid black;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+}

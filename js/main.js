@@ -1,5 +1,37 @@
 let eventBus = new Vue()
 
+Vue.component('task-card', {
+    props: {
+        task: {
+            type: Object,
+            required: true
+        },
+        columnId: {
+            type: Number,
+            required: true
+        }
+    },
+    template: `
+    <div class="task-card">
+        <h3>{{ task.title  }}</h3>
+        <p>{{ task.description }}</p>
+        <p><strong>Дэдлайн:</strong> {{ task.deadline }}</p>
+        <small>Создано: {{ task.createdAt }}</small>
+        <small v-if="task.lastEdit">Изменено: {{ task.lastEdit }}</small>
+        
+        <div class="card-actions">
+            <button @click="removeTask" v-if="columnId === 1"> Удалить</button>
+        </div>
+        
+    </div>
+    `,
+    methods: {
+        removeTask() {
+            eventBus.$emit('remove-task', this.task.id);
+        }
+    }
+})
+
 Vue.component('task-form', {
     template: `
     <form class="task-form" @submit.prevent="onSubmit">
@@ -64,12 +96,12 @@ Vue.component('kanban-board', {
 <!--                <div class="tasks-container"></div>-->
                 
                 <div class="tasks-container">
-                    <div v-for="task in column.tasks" :key="task.id" class="task-card">
-                        <h3>{{ task.title  }}</h3>
-                        <p>{{ task.description }}</p>
-                        <p><strong>Дэдлайн:</strong> {{ task.deadline }}</p>
-                        <small>Создано: {{ task.createdAt }}</small>
-                    </div>
+                    <task-card 
+                        v-for="task in column.tasks" 
+                        :key="task.id" 
+                        :task="task" 
+                        :column-id="column.id"
+                    ></task-card>
                 </div>
             </div>
         </div>
@@ -102,6 +134,13 @@ Vue.component('kanban-board', {
         eventBus.$on('task-added', task => {
             this.addTask(task);
         })
+
+        eventBus.$on('remove-task', taskId => {
+            const column = this.columns.find(col => col.id === 1);
+            column.tasks = column.tasks.filter(t => t.id !== taskId);
+            this.saveTasks();
+        });
+
     }
 })
 
