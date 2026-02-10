@@ -12,6 +12,14 @@ Vue.component('task-card', {
             <p>{{ task.description }}</p>
             <p v-if="task.returnReason" style="color: #d9534f;"><strong>Причина возврата:</strong> {{ task.returnReason }}</p>
             <p><strong>Дэдлайн:</strong> {{ task.deadline }}</p>
+            
+            <p v-if="columnId === 4">
+                <strong>Статус:</strong> 
+                <span :style="{ color: task.completedStatus === 'Просрочено' ? 'red' : 'green' }">
+                    {{ task.completedStatus }}
+                </span>
+            </p>
+            
             <small>Создано: {{ task.createdAt }}</small>
             <small v-if="task.lastEdit">Изменено: {{ task.lastEdit }}</small>
             
@@ -162,7 +170,21 @@ Vue.component('kanban-board', {
                 const idx = this.columns[i].tasks.findIndex(t => t.id === id);
                 if (idx !== -1) {
                     const task = this.columns[i].tasks.splice(idx, 1)[0];
+
+                    if (i === 2) {
+                        const today = new Date().setHours(0, 0, 0, 0);
+                        const deadline = new Date(task.deadline).setHours(0, 0, 0, 0);
+
+                        if (today > deadline) {
+                            task.completedStatus = 'Просрочено'
+                        } else {
+                            task.completedStatus = 'Выполнено в срок'
+                        }
+
+                    }
+
                     this.columns[i+1].tasks.push(task);
+                    this.saveTasks();
                     break;
                 }
             }
