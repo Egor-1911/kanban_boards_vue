@@ -13,6 +13,8 @@ Vue.component('task-card', {
             <p v-if="task.returnReason" style="color: #d9534f;"><strong>Причина возврата:</strong> {{ task.returnReason }}</p>
             <p><strong>Дэдлайн:</strong> {{ task.deadline }}</p>
             
+            <p style="color: greenyellow">Приоритет: {{ task.priority }}</p>
+            
             <p v-if="columnId === 4">
                 <strong>Статус:</strong> 
                 <span :style="{ color: task.completedStatus === 'Просрочено' ? 'red' : 'green' }">
@@ -88,13 +90,34 @@ Vue.component('task-form', {
     <form class="task-form" @submit.prevent="onSubmit">
         <p v-if="errors.length"><b>Исправьте ошибки:</b></p>
         <ul><li v-for="error in errors">{{ error }}</li></ul>
-        <input type="text" v-model="title" placeholder="Название" class="task-input">
-        <textarea v-model="description" placeholder="Описание" class="task-textarea"></textarea>
+        <label for="title" style="display:block; margin-bottom:5px; font-size:14px;">Название:</label>
+        <input type="text" v-model="title" class="task-input">
+        <label for="description" style="display:block; margin-bottom:5px; font-size:14px;">Описание:</label>
+        <textarea v-model="description" class="task-textarea"></textarea>
+        <label for="deadline" style="display:block; margin-bottom:5px; font-size:14px;">Дедлайн:</label>
         <input type="date" v-model="deadline" class="task-input">
+        
+        <label for="priority" style="display:block; margin-bottom:5px; font-size:14px;">Приоритет:</label>
+        <select v-model.number="priority" class="task-input">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+        </select>
+        
         <button type="submit" class="btn-add">Добавить задачу</button>
     </form>
     `,
-    data() { return { title: null, description: null, deadline: null, errors: [] } },
+    data() {
+        return {
+            title: null,
+            description: null,
+            deadline: null,
+            errors: [],
+            priority: 1
+        }
+    },
     methods: {
         onSubmit() {
             this.errors = [];
@@ -104,10 +127,12 @@ Vue.component('task-form', {
                     title: this.title,
                     description: this.description,
                     deadline: this.deadline,
+                    priority: this.priority || 1,
                     createdAt: new Date().toLocaleString(),
                     lastEdit: new Date().toLocaleString()
                 });
                 this.title = this.description = this.deadline = null;
+                this.priority = 1;
             } else {
                 this.errors.push("Заполните все поля");
             }
@@ -138,7 +163,13 @@ Vue.component('kanban-board', {
         }
     },
     methods: {
-        saveTasks() { localStorage.setItem('kanban-columns', JSON.stringify(this.columns)); }
+        saveTasks() { localStorage.setItem('kanban-columns', JSON.stringify(this.columns));
+        },
+        sortAllColumns () {
+            this.columns.forEach(column => {
+                column.tasks.sort((a, b) => a.priority - b.priority)
+            });
+        }
     },
     mounted() {
         const savedData = localStorage.getItem('kanban-columns');
@@ -146,6 +177,7 @@ Vue.component('kanban-board', {
 
         eventBus.$on('task-added', task => {
             this.columns[0].tasks.push(task);
+            this.sortAllColumns();
             this.saveTasks();
         });
 
@@ -159,6 +191,8 @@ Vue.component('kanban-board', {
                 const idx = this.columns[i].tasks.findIndex(t => t.id === updatedTask.id);
                 if (idx !== -1) {
                     this.columns[i].tasks.splice(idx, 1, updatedTask);
+                    this.sortAllColumns();
+                    this.saveTasks();
                     break;
                 }
             }
@@ -184,11 +218,11 @@ Vue.component('kanban-board', {
                     }
 
                     this.columns[i+1].tasks.push(task);
+                    this.sortAllColumns();
                     this.saveTasks();
                     break;
                 }
             }
-            this.saveTasks();
         });
 
         eventBus.$on('move-task-back', ({ taskId, reason }) => {
@@ -197,9 +231,15 @@ Vue.component('kanban-board', {
                 const task = this.columns[2].tasks.splice(idx, 1)[0];
                 task.returnReason = reason;
                 this.columns[1].tasks.push(task);
+                this.sortAllColumns();
                 this.saveTasks();
             }
         });
+
+        if (savedData) {
+            this.columns = JSON.parse(savedData);
+            this.sortAllColumns();
+        }
     }
 })
 
